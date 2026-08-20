@@ -26,7 +26,7 @@ if user_input := st.chat_input("Ваше сообщение:"):
         st.write(user_input)
 
     response = client.chat.completions.create(
-        model="llama3-8b-instant",
+        model="llama3.1-8b-instant",
         messages=st.session_state.messages
     )
     bot_reply = response.choices[0].message.content
