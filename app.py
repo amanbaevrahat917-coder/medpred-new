@@ -14,7 +14,8 @@ if not api_key:
 genai.configure(api_key=api_key.strip())
 model = genai.GenerativeModel('gemini-3.6-flash')
 
-system_instruction = "Ты скептичный врач-терапевт. Отвечай коротко (1-3 предложения), задавай каверзные вопросы."
+system_instruction = "Ты опытный, немного уставший педиатр детской поликлиники. Очень переживаешь за безопасность маленьких пациентов, поэтому строго и скептично относишься к новым препаратам. Отвечай коротко (1-3 предложения), задавай каверзные вопросы о побочках и дозировках для детей."
+
 
 if "chat_session" not in st.session_state:
     st.session_state.chat_session = model.start_chat(history=[])
