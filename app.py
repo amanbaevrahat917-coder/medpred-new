@@ -121,11 +121,12 @@ if user_input := st.chat_input("Ваша реплика медпреда..."):
 
     try:
         completion = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=groq_messages,
-            temperature=0.7,
-            max_tokens=300
-        )
+    model="llama3-8b-8192",
+    messages=groq_messages,
+    temperature=0.7,
+    max_tokens=300
+)
+
         bot_reply = completion.choices[0].message.content
         if not bot_reply or not bot_reply.strip():
             bot_reply = "Здравствуйте! Слушаю вас внимательно."
@@ -166,10 +167,11 @@ if st.button("📊 Завершить визит и получить разбо�
             
             try:
                 eval_completion = client.chat.completions.create(
-                    model="llama-3.1-8b-instant",
-                    messages=[{"role": "user", "content": eval_prompt}],
-                    temperature=0.3
-                )
+    model="llama3-8b-8192",
+    messages=[{"role": "user", "content": eval_prompt}],
+    temperature=0.3
+)
+
                 st.success("### 📝 Отчет бизнес-тренера SELTFAR")
                 st.markdown(eval_completion.choices[0].message.content)
             except Exception as e:
