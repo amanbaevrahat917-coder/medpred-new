@@ -10,11 +10,8 @@ if not api_key:
     st.info("💡 Введите ваш Groq API-ключ в меню слева, чтобы начать.")
     st.stop()
 
-# Явно задаем базовый URL Groq, чтобы исключить любые конфликты с OpenAI
-client = Groq(
-    api_key=api_key,
-    base_url="https://api.groq.com/openai/v1"
-)
+# Инициализируем клиента без лишних ссылок
+client = Groq(api_key=api_key)
 
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "system", "content": "Ты скептичный врач-терапевт. Отвечай коротко (1-3 предложения), задавай каверзные вопросы."}]
@@ -29,11 +26,15 @@ if user_input := st.chat_input("Ваше сообщение:"):
     with st.chat_message("user"):
         st.write(user_input)
 
-    response = client.chat.completions.create(
-        model="llama-3.1-8b-instant",
-        messages=st.session_state.messages
-    )
-    bot_reply = response.choices[0].message.content
-    st.session_state.messages.append({"role": "assistant", "content": bot_reply})
-    with st.chat_message("assistant"):
-        st.write(bot_reply)
+    # Блок с защитой от вылетов
+    try:
+        response = client.chat.completions.create(
+            model="mixtral-8x7b-32768",
+            messages=st.session_state.messages
+        )
+        bot_reply = response.choices[0].message.content
+        st.session_state.messages.append({"role": "assistant", "content": bot_reply})
+        with st.chat_message("assistant"):
+            st.write(bot_reply)
+    except Exception as e:
+        st.error(f"⚠️ Ошибка подключения к модели: {e}")
