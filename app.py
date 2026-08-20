@@ -10,7 +10,11 @@ if not api_key:
     st.info("💡 Введите ваш Groq API-ключ в меню слева, чтобы начать.")
     st.stop()
 
-client = Groq(api_key=api_key)
+# Явно задаем базовый URL Groq, чтобы исключить любые конфликты с OpenAI
+client = Groq(
+    api_key=api_key,
+    base_url="https://api.groq.com/openai/v1"
+)
 
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "system", "content": "Ты скептичный врач-терапевт. Отвечай коротко (1-3 предложения), задавай каверзные вопросы."}]
