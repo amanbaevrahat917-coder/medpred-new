@@ -80,8 +80,6 @@ with st.sidebar:
     
     st.info(f"**Профиль врача:** {scenario_data['doctor_profile']}")
     
-    with st.expander("💡 Шпаргалка SPIN по сценарию"):
-        st.markdown(scenario_data["cheat_sheet"])
     
     if st.button("🔄 Начать визит заново", type="secondary"):
         st.session_state.messages = []
