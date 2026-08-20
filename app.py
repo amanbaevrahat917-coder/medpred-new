@@ -4,22 +4,22 @@ import google.generativeai as genai
 st.set_page_config(page_title="Тренажер Медпреда", page_icon="🩺")
 st.title("🩺 Симулятор визита к врачу")
 
-api_key = st.sidebar.text_input("Введите Gemini API Key:", type="password")
+# Получаем ключ из Secrets (или из боковой панели, если Secrets не настроены)
+api_key = st.secrets.get("GEMINI_API_KEY") or st.sidebar.text_input("Введите Gemini API Key:", type="password")
 
 if not api_key:
-    st.info("💡 Введите ваш Gemini API-ключ в меню слева, чтобы начать.")
+    st.info("💡 Введите ваш Gemini API-ключ в меню слева или сохраните в Secrets.")
     st.stop()
 
-# Настройка Gemini
 genai.configure(api_key=api_key.strip())
+
+# Актуальная модель Gemini
 model = genai.GenerativeModel('gemini-3.6-flash')
 
 system_instruction = "Ты опытный, немного уставший педиатр детской поликлиники. Очень переживаешь за безопасность маленьких пациентов, поэтому строго и скептично относишься к новым препаратам. Отвечай коротко (1-3 предложения), задавай каверзные вопросы о побочках и дозировках для детей."
 
-
 if "chat_session" not in st.session_state:
     st.session_state.chat_session = model.start_chat(history=[])
-    # Отправляем системную инструкцию
     st.session_state.chat_session.send_message(f"Системная установка: {system_instruction}")
 
 if "messages" not in st.session_state:
