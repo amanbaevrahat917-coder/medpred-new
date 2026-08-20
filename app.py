@@ -1,44 +1,173 @@
 import streamlit as st
-import google.generativeai as genai
+from groq import Groq
 
-st.set_page_config(page_title="Тренажер Медпреда", page_icon="🩺")
-st.title("🩺 Симулятор визита к врачу")
+st.set_page_config(page_title="SPIN-Тренажер SELTFAR", page_icon="🩺", layout="wide")
 
-# Получаем ключ из Secrets или sidebar
-raw_key = st.secrets.get("GEMINI_API_KEY") or st.sidebar.text_input("Введите Gemini API Key:", type="password")
+# Проверка API ключа Groq
+raw_key = None
+if "GROQ_API_KEY" in st.secrets:
+    raw_key = st.secrets["GROQ_API_KEY"]
 
 if not raw_key:
-    st.info("💡 Введите ваш Gemini API-ключ в меню слева или сохраните в Secrets.")
+    raw_key = st.sidebar.text_input("Введите Groq API Key:", type="password")
+
+if not raw_key:
+    st.info("💡 Введите ваш Groq API-ключ в меню слева или сохраните в Secrets.")
     st.stop()
 
-api_key = raw_key.strip().strip('"').strip("'")
-genai.configure(api_key=api_key)
+api_key = str(raw_key).strip().strip('"').strip("'")
+client = Groq(api_key=api_key)
 
-model = genai.GenerativeModel('gemini-3.6-flash')
+# Данные сценариев SPIN из SELTFAR
+SPIN_SCENARIOS = {
+    "1. Врач только отпаивает (Ничего не назначает)": {
+        "doctor_profile": "Асель Аскаровна — педиатр. Придерживается строго физиологичного подхода (обильное питьё, увлажнение воздуха). Не любит лишний раз назначать сиропы от кашля.",
+        "key_facts": "Мокрота богата белками и углеводами -> риск присоединения бактериальной инфекции -> необходимость антибиотиков.",
+        "cheat_sheet": """
+        **Скрипт SPIN:**
+        - **Ситуация:** Какие сиропы рекомендуете детям с 2 лет?
+        - **Проблема:** Физиологические особенности (рыхлая слизистая) приводят к избытку мокроты.
+        - **Проблемный вопрос:** Мокрота богата белками и углеводами. К каким последствиям ведет застой?
+        - **Усугубляющий:** Присоединение инфекции = антибиотики. Какова реакция родителей?
+        - **Выгода:** Если бы был растительный препарат, защищающий от избытка мокроты и бактерий, рекомендовали бы?
+        """
+    },
+    "2. Назначает Мунаторил": {
+        "doctor_profile": "Асель Аскаровна — педиатр. Назначает Мунаторил детям с 2 лет.",
+        "key_facts": "В Мунаториле исландский мох 0.39% и подорожник 0.17% (недостаточная дозировка). В нашем препарате: мха в 1.5 раза больше, подорожника в 9 раз больше!",
+        "cheat_sheet": """
+        **Скрипт SPIN:**
+        - **Ситуация:** Какие сиропы рекомендуете детям с 2 лет? (Мунаторил)
+        - **Проблема:** В Мунаториле мох 0.39%, подорожник 0.17% — дозировка мала для разжижения.
+        - **Проблемный вопрос:** Если вязкая мокрота задерживается, к чему это ведет? (Усиливается кашель ночами).
+        - **Усугубляющий:** Кашель ночами -> обструкция, одышка, гормоны/антигистамины. Как себя чувствуют мама и ребенок?
+        - **Выгода:** Препарат, где подорожника в 9 раз больше, а мха в 1.5 раза больше — рекомендовали бы?
+        """
+    },
+    "3. Назначает Гербион (Подорожник, Мох)": {
+        "doctor_profile": "Асель Аскаровна — педиатр. Назначает Гербион с 4 лет.",
+        "key_facts": "Гербион разрешен с 4 лет, содержит только один компонент (мох 1.69% или подорожник 3.97%). В нашем препарате: в 1.8 раза больше подорожника и в 1.6 раз больше мха (комбинация!).",
+        "cheat_sheet": """
+        **Скрипт SPIN:**
+        - **Ситуация:** Какие сиропы рекомендуете? (Гербион с 4 лет).
+        - **Проблема:** В Гербионе либо мох 1.69%, либо подорожник 3.97% — недостаточно для полной защиты.
+        - **Проблемный вопрос:** Если полноценно не защитить слизистую от раздражителей, к чему приведет? (Кашель по ночам).
+        - **Усугубляющий:** Если кашель сохраняется ночью, как чувствуют себя ребенок и мама утром?
+        - **Выгода:** Препарат с комбинацией (в 1.8 р. больше подорожника и 1.6 р. больше мха) с 2 лет — рекомендовали бы?
+        """
+    },
+    "4. Назначает Проспан / Линкас / Амбробене (Горький вкус)": {
+        "doctor_profile": "Асель Аскаровна — педиатр. Назначает Проспан/Бронхипрет/Линкас.",
+        "key_facts": "У этих сиропов специфический горьковатый вкус, дети отказываются пить -> срыв лечения -> осложнения на нижние дыхательные пути.",
+        "cheat_sheet": """
+        **Скрипт SPIN:**
+        - **Ситуация:** Какие сиропы рекомендуете? (Проспан).
+        - **Проблема:** Препарат имеет горьковатый вкус, дети часто отказываются от приема.
+        - **Проблемный вопрос:** Если малыш отказывается от приема, к чему это ведет? (Кашель сохраняется).
+        - **Усугубляющий:** Кашель сохраняется -> риски со стороны нижних дыхательных путей / бессонные ночи.
+        - **Выгода:** Если препарат имеет приятный вкус и ребенок не отказывается, обеспечивая спокойный сон — рекомендовали бы?
+        """
+    }
+}
 
-system_instruction = "Ты опытный, немного уставший педиатр детской поликлиники. Очень переживаешь за безопасность маленьких пациентов, поэтому строго и скептично относишься к новым препаратам. Отвечай коротко (1-3 предложения), задавай каверзные вопросы о побочках и дозировках для детей."
+st.title("🩺 SELTFAR: SPIN-Тренажер визита к врачу")
 
-if "chat_session" not in st.session_state:
-    st.session_state.chat_session = model.start_chat(history=[])
-    st.session_state.chat_session.send_message(f"Системная установка: {system_instruction}")
+# Боковая панель
+with st.sidebar:
+    st.header("⚙️ Настройки визита")
+    selected_scenario_name = st.selectbox("Выберите клинический сценарий:", list(SPIN_SCENARIOS.keys()))
+    scenario_data = SPIN_SCENARIOS[selected_scenario_name]
+    
+    st.info(f"**Профиль врача:** {scenario_data['doctor_profile']}")
+    
+    with st.expander("💡 Шпаргалка SPIN по сценарию"):
+        st.markdown(scenario_data["cheat_sheet"])
+    
+    if st.button("🔄 Начать визит заново", type="secondary"):
+        st.session_state.messages = []
+        st.rerun()
 
-if "messages" not in st.session_state:
+# Инициализация истории
+if "current_scenario" not in st.session_state or st.session_state.current_scenario != selected_scenario_name:
+    st.session_state.current_scenario = selected_scenario_name
     st.session_state.messages = []
 
+# Отображение истории
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.write(msg["content"])
 
-if user_input := st.chat_input("Ваше сообщение:"):
+# Ввод пользователя
+if user_input := st.chat_input("Ваша реплика медпреда..."):
     st.session_state.messages.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
         st.write(user_input)
 
+    # Формируем системный промпт
+    system_prompt = f"""
+    Ты — врач-педиатр Асель Аскаровна (АА). 
+    Контекст сценария: {scenario_data['doctor_profile']}.
+    Твои ключевые установки: {scenario_data['key_facts']}.
+    
+    Правила поведения:
+    1. Отвечай строго в роли Асель Аскаровны.
+    2. Будь реалистичным врачом: отвечай коротко (1-3 предложения), немного сдержанно, как на реальном приеме.
+    3. Отвечай на вопросы медицинского представителя (пользователя) согласно логике сценария SPIN.
+    """
+
+    groq_messages = [{"role": "system", "content": system_prompt}]
+    for m in st.session_state.messages:
+        groq_messages.append({"role": m["role"], "content": m["content"]})
+
     try:
-        response = st.session_state.chat_session.send_message(user_input)
-        bot_reply = response.text
+        completion = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=groq_messages,
+            temperature=0.7,
+            max_tokens=300
+        )
+        bot_reply = completion.choices[0].message.content
         st.session_state.messages.append({"role": "assistant", "content": bot_reply})
         with st.chat_message("assistant"):
             st.write(bot_reply)
     except Exception as e:
-        st.error(f"⚠️ Ошибка Gemini API: {e}")
+        st.error(f"⚠️ Ошибка Groq API: {e}")
+
+# Кнопка разбора тренером
+st.divider()
+if st.button("📊 Завершить визит и получить разбор тренера SELTFAR", type="primary"):
+    if not st.session_state.messages:
+        st.warning("Сначала проведите диалог с врачом!")
+    else:
+        with st.spinner("Бизнес-тренер анализирует вашу технику SPIN..."):
+            dialog_history = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.messages])
+            
+            eval_prompt = f"""
+            Ты — строгий бизнес-тренер фармацевтической компании SELTFAR.
+            Оцени работу медицинского представителя в диалоге с врачом Асель Аскаровной.
+            
+            Сценарий: {selected_scenario_name}
+            Ключевые факты/цифры сценария: {scenario_data['key_facts']}
+            
+            История диалога:
+            {dialog_history}
+            
+            Дай разбор по пунктам:
+            1. **Ситуационный вопрос (S):** Задал ли МП вопрос о текущих назначениях?
+            2. **Проблемный вопрос (P):** Выявил ли МП проблему (дозировка, вкус, застой мокроты)?
+            3. **Извлекающий / Усугубляющий вопрос (I):** Усугубил ли МП проблему (осложнения, кашель ночью, антибиотики)?
+            4. **Направляющий вопрос / Выгода (N):** Предложил ли МП решение через выгоду?
+            5. **Использование ключевых цифр/аргументов:** Насколько точно использованы факты SELTFAR?
+            6. **Итоговая оценка (от 1 до 10):** и 2-3 главных совета для улучшения.
+            """
+            
+            try:
+                eval_completion = client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=[{"role": "user", "content": eval_prompt}],
+                    temperature=0.3
+                )
+                st.success("### 📝 Отчет бизнес-тренера SELTFAR")
+                st.markdown(eval_completion.choices[0].message.content)
+            except Exception as e:
+                st.error(f"Ошибка при генерации отчета: {e}")
