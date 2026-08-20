@@ -121,7 +121,7 @@ if user_input := st.chat_input("Ваша реплика медпреда..."):
 
     try:
         completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="llama-3.1-8b-instant",
             messages=groq_messages,
             temperature=0.7,
             max_tokens=300
@@ -163,7 +163,7 @@ if st.button("📊 Завершить визит и получить разбо�
             
             try:
                 eval_completion = client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
+                    model="llama-3.1-8b-instant",
                     messages=[{"role": "user", "content": eval_prompt}],
                     temperature=0.3
                 )
