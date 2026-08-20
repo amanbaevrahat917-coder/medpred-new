@@ -13,7 +13,7 @@ if not raw_key:
 api_key = raw_key.strip().strip('"').strip("'")
 genai.configure(api_key=api_key)
 
-model = genai.GenerativeModel('gemini-3.6-flash')
+model = genai.GenerativeModel('gemini-2.5-flash')
 
 # Данные сценариев SPIN из SELTFAR
 SPIN_SCENARIOS = {
