@@ -1,16 +1,16 @@
 import streamlit as st
-from openai import OpenAI
+from groq import Groq
 
 st.set_page_config(page_title="Тренажер Медпреда", page_icon="🩺")
 st.title("🩺 Симулятор визита к врачу")
 
-api_key = st.sidebar.text_input("Введите OpenAI API Key:", type="password")
+api_key = st.sidebar.text_input("Введите Groq API Key:", type="password")
 
 if not api_key:
-    st.info("💡 Введите ваш API-ключ в меню слева, чтобы начать.")
+    st.info("💡 Введите ваш Groq API-ключ в меню слева, чтобы начать.")
     st.stop()
 
-client = OpenAI(api_key=api_key)
+client = Groq(api_key=api_key)
 
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "system", "content": "Ты скептичный врач-терапевт. Отвечай коротко (1-3 предложения), задавай каверзные вопросы."}]
@@ -26,7 +26,7 @@ if user_input := st.chat_input("Ваше сообщение:"):
         st.write(user_input)
 
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="llama-3.3-70b-versatile",
         messages=st.session_state.messages
     )
     bot_reply = response.choices[0].message.content
