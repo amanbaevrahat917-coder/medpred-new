@@ -12,7 +12,7 @@ if not api_key:
 
 # Настройка Gemini
 genai.configure(api_key=api_key.strip())
-model = genai.GenerativeModel('gemini-1.5-flash')
+model = genai.GenerativeModel('gemini-2.5-flash')
 
 system_instruction = "Ты скептичный врач-терапевт. Отвечай коротко (1-3 предложения), задавай каверзные вопросы."
 
