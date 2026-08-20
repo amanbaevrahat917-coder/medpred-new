@@ -18,6 +18,22 @@ if not raw_key:
 api_key = str(raw_key).strip().strip('"').strip("'")
 client = Groq(api_key=api_key)
 
+# Динамическое получение первой доступной модели Llama в Groq
+@st.cache_data(ttl=3600)
+def get_working_model():
+    try:
+        models = client.models.list()
+        model_ids = [m.id for m in models.data]
+        # Ищем актуальную модель Llama или берем первую из списка
+        for m_id in model_ids:
+            if "llama" in m_id.lower() and "guard" not in m_id.lower():
+                return m_id
+        return model_ids[0] if model_ids else "llama-3.3-70b-versatile"
+    except Exception:
+        return "llama-3.3-70b-versatile"
+
+ACTIVE_MODEL = get_working_model()
+
 # Данные сценариев SPIN из SELTFAR
 SPIN_SCENARIOS = {
     "1. Врач только отпаивает (Ничего не назначает)": {
@@ -79,6 +95,7 @@ with st.sidebar:
     scenario_data = SPIN_SCENARIOS[selected_scenario_name]
     
     st.info(f"**Профиль врача:** {scenario_data['doctor_profile']}")
+    st.caption(f"🤖 Активная модель: `{ACTIVE_MODEL}`")
     
     with st.expander("💡 Шпаргалка SPIN по сценарию"):
         st.markdown(scenario_data["cheat_sheet"])
@@ -121,12 +138,11 @@ if user_input := st.chat_input("Ваша реплика медпреда..."):
 
     try:
         completion = client.chat.completions.create(
-    model="llama3-8b-8192",
-    messages=groq_messages,
-    temperature=0.7,
-    max_tokens=300
-)
-
+            model=ACTIVE_MODEL,
+            messages=groq_messages,
+            temperature=0.7,
+            max_tokens=300
+        )
         bot_reply = completion.choices[0].message.content
         if not bot_reply or not bot_reply.strip():
             bot_reply = "Здравствуйте! Слушаю вас внимательно."
@@ -167,11 +183,10 @@ if st.button("📊 Завершить визит и получить разбо�
             
             try:
                 eval_completion = client.chat.completions.create(
-    model="llama3-8b-8192",
-    messages=[{"role": "user", "content": eval_prompt}],
-    temperature=0.3
-)
-
+                    model=ACTIVE_MODEL,
+                    messages=[{"role": "user", "content": eval_prompt}],
+                    temperature=0.3
+                )
                 st.success("### 📝 Отчет бизнес-тренера SELTFAR")
                 st.markdown(eval_completion.choices[0].message.content)
             except Exception as e:
