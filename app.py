@@ -17,10 +17,15 @@ def load_history():
             return []
     return []
 
-# Теперь функция принимает и сохраняет сам диалог
-def save_history(name, scenario, dialog_text):
+# ДОБАВИЛИ сохранение оценки (feedback)
+def save_history(name, scenario, dialog_text, feedback):
     data = load_history()
-    data.append({"name": name, "scenario": scenario, "dialog": dialog_text})
+    data.append({
+        "name": name, 
+        "scenario": scenario, 
+        "dialog": dialog_text,
+        "feedback": feedback # Сохраняем разбор тренера
+    })
     with open(HISTORY_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
 # --------------------------------------------
@@ -87,10 +92,6 @@ with st.sidebar:
     selected_scenario_name = st.selectbox("Выберите клинический сценарий:", list(SPIN_SCENARIOS.keys()))
     scenario_data = SPIN_SCENARIOS[selected_scenario_name]
     
-    st.info(f"**Профиль врача:** {scenario_data['doctor_profile']}")
-
-
-    
     # === СЕКРЕТНАЯ АДМИН-ПАНЕЛЬ С ИСТОРИЕЙ ДИАЛОГОВ ===
     if user_name == "Рахат_Босс":
         st.divider()
@@ -102,8 +103,17 @@ with st.sidebar:
                 st.write("Пока никто не прошел.")
             else:
                 for i, item in enumerate(reversed(global_history[-15:]), 1):
-                    # Делаем вложенный блок, чтобы открывать диалог кликом
                     with st.expander(f"👤 {item.get('name', 'Аноним')} | {item['scenario'][:15]}..."):
+                        
+                        # Выводим оценку тренера, если она сохранилась
+                        st.markdown("**📝 Оценка и разбор:**")
+                        if 'feedback' in item:
+                            st.info(item['feedback'])
+                        else:
+                            st.write("Оценка не сохранилась (старая версия).")
+                            
+                        # Выводим сам диалог
+                        st.markdown("**💬 Диалог:**")
                         if 'dialog' in item:
                             st.text(item['dialog'])
                         else:
@@ -176,7 +186,6 @@ if st.button("📊 Завершить визит и получить разбо�
     else:
         with st.spinner("Бизнес-тренер анализирует вашу технику SPIN..."):
             
-            # Собираем диалог в красивый текст для тренера И ДЛЯ СОХРАНЕНИЯ
             dialog_history = ""
             for m in st.session_state.messages:
                 role_name = "МЕДПРЕД" if m['role'] == "user" else "ВРАЧ"
@@ -207,12 +216,16 @@ if st.button("📊 Завершить визит и получить разбо�
                     messages=[{"role": "user", "content": eval_prompt}],
                     temperature=0.3
                 )
-                st.success("### 📝 Отчет бизнес-тренера SELTFAR")
-                st.markdown(eval_completion.choices[0].message.content)
                 
-                # ---> СОХРАНЯЕМ ИМЯ, СЦЕНАРИЙ И САМ ТЕКСТ ДИАЛОГА <---
+                # Сохраняем ответ тренера в переменную
+                coach_feedback = eval_completion.choices[0].message.content
+                
+                st.success("### 📝 Отчет бизнес-тренера SELTFAR")
+                st.markdown(coach_feedback)
+                
+                # ---> СОХРАНЯЕМ ИМЯ, СЦЕНАРИЙ, ДИАЛОГ И САМ РАЗБОР <---
                 save_name = user_name if user_name.strip() else "Аноним"
-                save_history(save_name, selected_scenario_name, dialog_history)
+                save_history(save_name, selected_scenario_name, dialog_history, coach_feedback)
                 
             except Exception as e:
                 st.error(f"Ошибка при генерации отчета: {e}")
