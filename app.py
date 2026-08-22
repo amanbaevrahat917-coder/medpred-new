@@ -136,18 +136,18 @@ if user_input := st.chat_input("Ваша реплика медпреда..."):
     with st.chat_message("user"):
         st.write(user_input)
 
-    # ИНСТРУКЦИЯ ДЛЯ ВРАЧА ПО НОВОЙ МЕТОДИЧКЕ
+    # Улучшенный системный промпт с заслоном от повторных приветствий
     system_prompt = f"""
-    Ты — врач-педиатр Асель Аскаровна. 
-    Твоя изначальная позиция: {scenario_data['doctor_profile']}.
+    Ты — врач-педиатр Асель Аскаровна (АА). 
+    Контекст сценария: {scenario_data['doctor_profile']}.
+    Ожидаемые ответы по методичке SPIN: {scenario_data['expected_doctor_answers']}
     
-    ВАЖНОЕ ПРАВИЛО (SPIN-техника):
-    Ты общаешься с медицинским представителем. Отвечай коротко (1-2 предложения).
-    Если он задает правильные наводящие вопросы — подыгрывай ему согласно этому сценарию:
-    {scenario_data['expected_doctor_answers']}
-    
-    Если он предлагает хороший препарат, который решает проблему — соглашайся.
-    Сначала поздоровайся и назови препарат/метод лечения из своего профиля.
+    СТРОГИЕ ПРАВИЛА:
+    1. Никогда НЕ здоровайся повторно, если диалог уже идет!
+    2. Отвечай прямо на вопрос медпреда, строго 1-2 предложениями.
+    3. Если медпред задает вопрос про последствия/проблему (как на слайде), отвечай точно по методичке:
+       например, 'Усиливается кашель, чаще по ночам' или 'Обструкция, одышка'.
+    4. Не используй шаблонные фразы вроде 'Слушаю вас внимательно'.
     """
 
     groq_messages = [{"role": "system", "content": system_prompt}]
@@ -158,12 +158,12 @@ if user_input := st.chat_input("Ваша реплика медпреда..."):
         completion = client.chat.completions.create(
             model="openai/gpt-oss-20b",
             messages=groq_messages,
-            temperature=0.6,
-            max_tokens=300
+            temperature=0.5,
+            max_tokens=250
         )
         bot_reply = completion.choices[0].message.content
         if not bot_reply or not bot_reply.strip():
-            bot_reply = "Здравствуйте! Слушаю вас внимательно."
+            bot_reply = "Да, я вас слушаю, продолжайте."
             
         st.session_state.messages.append({"role": "assistant", "content": bot_reply})
         with st.chat_message("assistant"):
@@ -183,7 +183,6 @@ if st.button("📊 Завершить визит и получить разбо�
                 role_name = "МЕДПРЕД" if m['role'] == "user" else "ВРАЧ"
                 dialog_history += f"[{role_name}]: {m['content']}\n\n"
             
-            # НОВЫЙ ПРОМПТ ДЛЯ ТРЕНЕРА
             eval_prompt = f"""
             Ты — строгий бизнес-тренер фармацевтической компании SELTFAR.
             Оцени работу медицинского представителя (МП) по технике SPIN.
