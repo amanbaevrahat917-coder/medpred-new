@@ -17,9 +17,10 @@ def load_history():
             return []
     return []
 
-def save_history(name, scenario):
+# Теперь функция принимает и сохраняет сам диалог
+def save_history(name, scenario, dialog_text):
     data = load_history()
-    data.append({"name": name, "scenario": scenario})
+    data.append({"name": name, "scenario": scenario, "dialog": dialog_text})
     with open(HISTORY_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
 # --------------------------------------------
@@ -80,16 +81,39 @@ st.title("🩺 SELTFAR: SPIN-Тренажер визита к врачу")
 with st.sidebar:
     st.header("⚙️ Настройки визита")
     
-    # Ввод имени пользователя
-    user_name = st.text_input("👤 Ваше имя (для рейтинга):", "Аноним")
+    # Поле видно всем
+    user_name = st.text_input("👤 Ваше имя (для отчета):", "Аноним")
     
     selected_scenario_name = st.selectbox("Выберите клинический сценарий:", list(SPIN_SCENARIOS.keys()))
     scenario_data = SPIN_SCENARIOS[selected_scenario_name]
     
     st.info(f"**Профиль врача:** {scenario_data['doctor_profile']}")
-    st.caption(f"🤖 Активная модель: `{ACTIVE_MODEL}`")
+    st.caption(f"🤖 Активная модель: `"openai/gpt-oss-20b"`")
     
-   
+    # === СЕКРЕТНАЯ АДМИН-ПАНЕЛЬ С ИСТОРИЕЙ ДИАЛОГОВ ===
+    if user_name == "Рахат_Босс":
+        st.divider()
+        st.success("🔓 Режим разработчика")
+        
+        with st.expander("🌍 История прохождений (только для админа)"):
+            global_history = load_history()
+            if not global_history:
+                st.write("Пока никто не прошел.")
+            else:
+                for i, item in enumerate(reversed(global_history[-15:]), 1):
+                    # Делаем вложенный блок, чтобы открывать диалог кликом
+                    with st.expander(f"👤 {item.get('name', 'Аноним')} | {item['scenario'][:15]}..."):
+                        if 'dialog' in item:
+                            st.text(item['dialog'])
+                        else:
+                            st.write("Диалог не сохранился (старая версия).")
+        
+        if st.button("🗑️ Очистить историю", type="primary"):
+            if os.path.exists(HISTORY_FILE):
+                os.remove(HISTORY_FILE)
+                st.success("История очищена!")
+                st.rerun()
+    # ==================================================
     
     if st.button("🔄 Начать визит заново", type="secondary"):
         st.session_state.messages = []
@@ -150,7 +174,12 @@ if st.button("📊 Завершить визит и получить разбо�
         st.warning("Сначала проведите диалог с врачом!")
     else:
         with st.spinner("Бизнес-тренер анализирует вашу технику SPIN..."):
-            dialog_history = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.messages])
+            
+            # Собираем диалог в красивый текст для тренера И ДЛЯ СОХРАНЕНИЯ
+            dialog_history = ""
+            for m in st.session_state.messages:
+                role_name = "МЕДПРЕД" if m['role'] == "user" else "ВРАЧ"
+                dialog_history += f"[{role_name}]: {m['content']}\n\n"
             
             eval_prompt = f"""
             Ты — строгий бизнес-тренер фармацевтической компании SELTFAR.
@@ -180,8 +209,9 @@ if st.button("📊 Завершить визит и получить разбо�
                 st.success("### 📝 Отчет бизнес-тренера SELTFAR")
                 st.markdown(eval_completion.choices[0].message.content)
                 
-                # ---> СОХРАНЯЕМ ИМЯ И СЦЕНАРИЙ <---
-                save_history(user_name, selected_scenario_name)
+                # ---> СОХРАНЯЕМ ИМЯ, СЦЕНАРИЙ И САМ ТЕКСТ ДИАЛОГА <---
+                save_name = user_name if user_name.strip() else "Аноним"
+                save_history(save_name, selected_scenario_name, dialog_history)
                 
             except Exception as e:
                 st.error(f"Ошибка при генерации отчета: {e}")
