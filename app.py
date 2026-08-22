@@ -1,7 +1,28 @@
 import streamlit as st
 from groq import Groq
+import json
+import os
 
 st.set_page_config(page_title="SPIN-Тренажер SELTFAR", page_icon="🩺", layout="wide")
+
+# --- ФУНКЦИИ ДЛЯ ОБЩЕЙ ИСТОРИИ ПРОХОЖДЕНИЙ ---
+HISTORY_FILE = "history.json"
+
+def load_history():
+    if os.path.exists(HISTORY_FILE):
+        try:
+            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            return []
+    return []
+
+def save_history(name, scenario):
+    data = load_history()
+    data.append({"name": name, "scenario": scenario})
+    with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)
+# --------------------------------------------
 
 # Проверка API ключа Groq
 raw_key = None
@@ -18,55 +39,38 @@ if not raw_key:
 api_key = str(raw_key).strip().strip('"').strip("'")
 client = Groq(api_key=api_key)
 
-# Данные сценариев SPIN из SELTFAR
+# Динамическое получение доступной модели
+@st.cache_data(ttl=3600)
+def get_working_model():
+    try:
+        models = client.models.list()
+        model_ids = [m.id for m in models.data]
+        for m_id in model_ids:
+            if "llama" in m_id.lower() and "guard" not in m_id.lower():
+                return m_id
+        return model_ids[0] if model_ids else "llama-3.3-70b-versatile"
+    except Exception:
+        return "llama-3.3-70b-versatile"
+
+ACTIVE_MODEL = get_working_model()
+
+# Данные сценариев SPIN
 SPIN_SCENARIOS = {
     "1. Врач только отпаивает (Ничего не назначает)": {
         "doctor_profile": "Асель Аскаровна — педиатр. Придерживается строго физиологичного подхода (обильное питьё, увлажнение воздуха). Не любит лишний раз назначать сиропы от кашля.",
-        "key_facts": "Мокрота богата белками и углеводами -> риск присоединения бактериальной инфекции -> необходимость антибиотиков.",
-        "cheat_sheet": """
-        **Скрипт SPIN:**
-        - **Ситуация:** Какие сиропы рекомендуете детям с 2 лет?
-        - **Проблема:** Физиологические особенности (рыхлая слизистая) приводят к избытку мокроты.
-        - **Проблемный вопрос:** Мокрота богата белками и углеводами. К каким последствиям ведет застой?
-        - **Усугубляющий:** Присоединение инфекции = антибиотики. Какова реакция родителей?
-        - **Выгода:** Если бы был растительный препарат, защищающий от избытка мокроты и бактерий, рекомендовали бы?
-        """
+        "key_facts": "Мокрота богата белками и углеводами -> риск присоединения бактериальной инфекции -> необходимость антибиотиков."
     },
     "2. Назначает Мунаторил": {
         "doctor_profile": "Асель Аскаровна — педиатр. Назначает Мунаторил детям с 2 лет.",
-        "key_facts": "В Мунаториле исландский мох 0.39% и подорожник 0.17% (недостаточная дозировка). В нашем препарате: мха в 1.5 раза больше, подорожника в 9 раз больше!",
-        "cheat_sheet": """
-        **Скрипт SPIN:**
-        - **Ситуация:** Какие сиропы рекомендуете детям с 2 лет? (Мунаторил)
-        - **Проблема:** В Мунаториле мох 0.39%, подорожник 0.17% — дозировка мала для разжижения.
-        - **Проблемный вопрос:** Если вязкая мокрота задерживается, к чему это ведет? (Усиливается кашель ночами).
-        - **Усугубляющий:** Кашель ночами -> обструкция, одышка, гормоны/антигистамины. Как себя чувствуют мама и ребенок?
-        - **Выгода:** Препарат, где подорожника в 9 раз больше, а мха в 1.5 раза больше — рекомендовали бы?
-        """
+        "key_facts": "В Мунаториле исландский мох 0.39% и подорожник 0.17% (недостаточная дозировка). В нашем препарате: мха в 1.5 раза больше, подорожника в 9 раз больше!"
     },
     "3. Назначает Гербион (Подорожник, Мох)": {
         "doctor_profile": "Асель Аскаровна — педиатр. Назначает Гербион с 4 лет.",
-        "key_facts": "Гербион разрешен с 4 лет, содержит только один компонент (мох 1.69% или подорожник 3.97%). В нашем препарате: в 1.8 раза больше подорожника и в 1.6 раз больше мха (комбинация!).",
-        "cheat_sheet": """
-        **Скрипт SPIN:**
-        - **Ситуация:** Какие сиропы рекомендуете? (Гербион с 4 лет).
-        - **Проблема:** В Гербионе либо мох 1.69%, либо подорожник 3.97% — недостаточно для полной защиты.
-        - **Проблемный вопрос:** Если полноценно не защитить слизистую от раздражителей, к чему приведет? (Кашель по ночам).
-        - **Усугубляющий:** Если кашель сохраняется ночью, как чувствуют себя ребенок и мама утром?
-        - **Выгода:** Препарат с комбинацией (в 1.8 р. больше подорожника и 1.6 р. больше мха) с 2 лет — рекомендовали бы?
-        """
+        "key_facts": "Гербион разрешен с 4 лет, содержит только один компонент (мох 1.69% или подорожник 3.97%). В нашем препарате: в 1.8 раза больше подорожника и в 1.6 раз больше мха (комбинация!)."
     },
     "4. Назначает Проспан / Линкас / Амбробене (Горький вкус)": {
         "doctor_profile": "Асель Аскаровна — педиатр. Назначает Проспан/Бронхипрет/Линкас.",
-        "key_facts": "У этих сиропов специфический горьковатый вкус, дети отказываются пить -> срыв лечения -> осложнения на нижние дыхательные пути.",
-        "cheat_sheet": """
-        **Скрипт SPIN:**
-        - **Ситуация:** Какие сиропы рекомендуете? (Проспан).
-        - **Проблема:** Препарат имеет горьковатый вкус, дети часто отказываются от приема.
-        - **Проблемный вопрос:** Если малыш отказывается от приема, к чему это ведет? (Кашель сохраняется).
-        - **Усугубляющий:** Кашель сохраняется -> риски со стороны нижних дыхательных путей / бессонные ночи.
-        - **Выгода:** Если препарат имеет приятный вкус и ребенок не отказывается, обеспечивая спокойный сон — рекомендовали бы?
-        """
+        "key_facts": "У этих сиропов специфический горьковатый вкус, дети отказываются пить -> срыв лечения -> осложнения на нижние дыхательные пути."
     }
 }
 
@@ -75,17 +79,31 @@ st.title("🩺 SELTFAR: SPIN-Тренажер визита к врачу")
 # Боковая панель
 with st.sidebar:
     st.header("⚙️ Настройки визита")
+    
+    # Ввод имени пользователя
+    user_name = st.text_input("👤 Ваше имя (для рейтинга):", "Аноним")
+    
     selected_scenario_name = st.selectbox("Выберите клинический сценарий:", list(SPIN_SCENARIOS.keys()))
     scenario_data = SPIN_SCENARIOS[selected_scenario_name]
     
     st.info(f"**Профиль врача:** {scenario_data['doctor_profile']}")
+    st.caption(f"🤖 Активная модель: `{ACTIVE_MODEL}`")
     
+    # Показываем общую историю
+    with st.expander("🌍 Кто уже проходил тренажер?"):
+        global_history = load_history()
+        if not global_history:
+            st.write("Пока никто не прошел. Будь первым!")
+        else:
+            # Показываем последние 10 попыток (в обратном порядке)
+            for i, item in enumerate(reversed(global_history[-10:]), 1):
+                st.write(f"**{item.get('name', 'Аноним')}** | {item['scenario']}")
     
     if st.button("🔄 Начать визит заново", type="secondary"):
         st.session_state.messages = []
         st.rerun()
 
-# Инициализация истории
+# Инициализация истории сообщений
 if "current_scenario" not in st.session_state or st.session_state.current_scenario != selected_scenario_name:
     st.session_state.current_scenario = selected_scenario_name
     st.session_state.messages = []
@@ -101,7 +119,6 @@ if user_input := st.chat_input("Ваша реплика медпреда..."):
     with st.chat_message("user"):
         st.write(user_input)
 
-    # Формируем системный промпт
     system_prompt = f"""
     Ты — врач-педиатр Асель Аскаровна (АА). 
     Контекст сценария: {scenario_data['doctor_profile']}.
@@ -119,12 +136,15 @@ if user_input := st.chat_input("Ваша реплика медпреда..."):
 
     try:
         completion = client.chat.completions.create(
-            model="openai/gpt-oss-20b",
+            model=ACTIVE_MODEL,
             messages=groq_messages,
             temperature=0.7,
             max_tokens=300
         )
         bot_reply = completion.choices[0].message.content
+        if not bot_reply or not bot_reply.strip():
+            bot_reply = "Здравствуйте! Слушаю вас внимательно."
+            
         st.session_state.messages.append({"role": "assistant", "content": bot_reply})
         with st.chat_message("assistant"):
             st.write(bot_reply)
@@ -133,7 +153,7 @@ if user_input := st.chat_input("Ваша реплика медпреда..."):
 
 # Кнопка разбора тренером
 st.divider()
-if st.button("📊 Завершить визит и получить разбор тренера SELTFAR", type="primary"):
+if st.button("📊 Завершить визит и получить разбор", type="primary"):
     if not st.session_state.messages:
         st.warning("Сначала проведите диалог с врачом!")
     else:
@@ -161,11 +181,15 @@ if st.button("📊 Завершить визит и получить разбо�
             
             try:
                 eval_completion = client.chat.completions.create(
-                    model="openai/gpt-oss-20b",
+                    model=ACTIVE_MODEL,
                     messages=[{"role": "user", "content": eval_prompt}],
                     temperature=0.3
                 )
                 st.success("### 📝 Отчет бизнес-тренера SELTFAR")
                 st.markdown(eval_completion.choices[0].message.content)
+                
+                # ---> СОХРАНЯЕМ ИМЯ И СЦЕНАРИЙ <---
+                save_history(user_name, selected_scenario_name)
+                
             except Exception as e:
                 st.error(f"Ошибка при генерации отчета: {e}")
