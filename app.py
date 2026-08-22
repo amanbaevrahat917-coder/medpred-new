@@ -88,8 +88,8 @@ with st.sidebar:
     scenario_data = SPIN_SCENARIOS[selected_scenario_name]
     
     st.info(f"**Профиль врача:** {scenario_data['doctor_profile']}")
-    st.caption(f"🤖 Активная модель: `ACTIVE_MODEL`)
-    
+
+
     
     # === СЕКРЕТНАЯ АДМИН-ПАНЕЛЬ С ИСТОРИЕЙ ДИАЛОГОВ ===
     if user_name == "Рахат_Босс":
