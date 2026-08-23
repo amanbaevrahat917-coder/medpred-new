@@ -79,7 +79,7 @@ SPIN_SCENARIOS = {
     }
 }
 
-}
+
 
 st.title("🩺 SELTFAR: SPIN-Тренажер визита к врачу")
 
