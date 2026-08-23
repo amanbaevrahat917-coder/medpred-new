@@ -131,13 +131,18 @@ if "current_scenario" not in st.session_state or st.session_state.current_scenar
     st.session_state.current_scenario = selected_scenario_name
     st.session_state.messages = []
 
+# === ОТРИСОВКА ИСТОРИИ ЧАТА С ИМЕНАМИ И АВАТАРКАМИ ===
 for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.write(msg["content"])
+    if msg["role"] == "user":
+        with st.chat_message("Медицинский представитель", avatar="💼"):
+            st.write(msg["content"])
+    else:
+        with st.chat_message("Педиатр Асель Аскаровна", avatar="👩‍⚕️"):
+            st.write(msg["content"])
 
 if user_input := st.chat_input("Ваша реплика медпреда..."):
     st.session_state.messages.append({"role": "user", "content": user_input})
-    with st.chat_message("user"):
+    with st.chat_message("Медицинский представитель", avatar="💼"):
         st.write(user_input)
 
         # === ГИБКИЙ УМНЫЙ ПРОМПТ ===
