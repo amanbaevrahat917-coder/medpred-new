@@ -167,17 +167,18 @@ if user_input := st.chat_input("Ваша реплика медпреда..."):
     for m in st.session_state.messages:
         groq_messages.append({"role": m["role"], "content": m["content"]})
 
-    try:
+        try:
         completion = client.chat.completions.create(
             model="openai/gpt-oss-20b",
             messages=groq_messages,
-            temperature=0.6,
-            max_tokens=250
+            temperature=0.7,
+            max_tokens=200
         )
         bot_reply = completion.choices[0].message.content
         
+        # Если модель выдала пустой ответ, даем АДЕКВАТНЫЙ скептический ответ врача:
         if not bot_reply or not bot_reply.strip():
-            bot_reply = "Да, бывает задержка мокроты. Из-за этого у ребенка кашель усиливается, особенно по ночам."
+            bot_reply = "А с чего вы взяли, что ваш препарат лучше? Чем вы можете это доказать?"
             
         st.session_state.messages.append({"role": "assistant", "content": bot_reply})
         
