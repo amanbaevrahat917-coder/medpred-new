@@ -142,7 +142,8 @@ if user_input := st.chat_input("Ваша реплика медпреда..."):
     with st.chat_message("Медицинский представитель", avatar="💼"):
         st.write(user_input)
 
-            system_prompt = f"""
+        
+        system_prompt = f"""
     Ты — врач-педиатр Асель Аскаровна. Ты беседуешь с медицинским представителем.
     
     ТВОЯ ТЕКУЩАЯ ПОЗИЦИЯ: {scenario_data['doctor_profile']}
