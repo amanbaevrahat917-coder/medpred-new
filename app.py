@@ -3,6 +3,52 @@ from groq import Groq
 import json
 import os
 
+import streamlit as st
+
+# 1. ИНИЦИАЛИЗАЦИЯ ПАРОЛЕЙ В SESSION STATE
+if "app_password" not in st.session_state:
+    st.session_state.app_password = "1234"  # Пароль по умолчанию для входа
+if "admin_password" not in st.session_state:
+    st.session_state.admin_password = "admin777"  # Мастер-пароль (знаешь только ты!)
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+# 2. ФУНКЦИЯ ПРОВЕРКИ ВХОДА
+def check_password():
+    user_input = st.text_input("Введите код доступа для запуска тренажера:", type="password")
+    if st.button("Войти"):
+        if user_input == st.session_state.app_password:
+            st.session_state.authenticated = True
+            st.rerun()
+        else:
+            st.error("Неверный код доступа!")
+
+# 3. ЭКРАН ВХОДАИЛИ ОСНОВНОЕ ПРИЛОЖЕНИЕ
+if not st.session_state.authenticated:
+    st.title("🔒 Доступ ограничен")
+    check_password()
+    st.stop()  # Обливает выполнением остальной код до ввода пароля
+
+# --- ТУТ НАЧИНАЕТСЯ ТВОЙ ОСНОВНОЙ КОД ПРИЛОЖЕНИЯ ---
+
+# 4. БОКОВАЯ ПАНЕЛЬ ДЛЯ СМЕНЫ ПАРОЛЯ (ТОЛЬКО ДЛЯ АДМИНА)
+with st.sidebar:
+    st.write("---")
+    with st.expander("⚙️ Настройки доступа"):
+        admin_key = st.text_input("Мастер-пароль админа:", type="password")
+        new_pass = st.text_input("Новый код доступа для пользователей:", type="password")
+        
+        if st.button("Сохранить новый код"):
+            if admin_key == st.session_state.admin_password:
+                if new_pass.strip():
+                    st.session_state.app_password = new_pass.strip()
+                    st.success("Код доступа успешно изменен!")
+                else:
+                    st.warning("Введите корректный новый код.")
+            else:
+                st.error("Неверный мастер-пароль!")
+
+
 st.set_page_config(page_title="SPIN-Тренажер SELTFAR", page_icon="🩺", layout="wide")
 
 HISTORY_FILE = "history.json"
