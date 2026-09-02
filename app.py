@@ -1,50 +1,60 @@
 import streamlit as st
 from groq import Groq
 import json
+import os
 import streamlit as st
 
-# 1. ИНИЦИАЛИЗАЦИЯ ПАРОЛЕЙ В SESSION STATE
-if "app_password" not in st.session_state:
-    st.session_state.app_password = "1234"  # Пароль по умолчанию для входа
-if "admin_password" not in st.session_state:
-    st.session_state.admin_password = "admin777"  # Мастер-пароль (знаешь только ты!)
+PASSWORD_FILE = "app_pass.txt"
+ADMIN_PASSWORD = "admin777"  # Твой личный админский мастер-пароль
+
+# Функция чтения актуального пароля
+def get_current_password():
+    if os.path.exists(PASSWORD_FILE):
+        with open(PASSWORD_FILE, "r", encoding="utf-8") as f:
+            saved_pass = f.read().strip()
+            if saved_pass:
+                return saved_pass
+    return "1234"  # Стандартный пароль только до первой смены
+
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
-# 2. ФУНКЦИЯ ПРОВЕРКИ ВХОДА
-def check_password():
-    user_input = st.text_input("Введите код доступа для запуска тренажера:", type="password")
+# 1. ЭКРАН ВХОДА
+if not st.session_state.authenticated:
+    st.title("🔒 Доступ ограничен")
+    user_input = st.text_input("Введите код доступа:", type="password")
+    
     if st.button("Войти"):
-        if user_input == st.session_state.app_password:
+        # Читаем самый свежий пароль из файла
+        real_password = get_current_password()
+        if user_input == real_password:
             st.session_state.authenticated = True
             st.rerun()
         else:
             st.error("Неверный код доступа!")
-
-# 3. ЭКРАН ВХОДАИЛИ ОСНОВНОЕ ПРИЛОЖЕНИЕ
-if not st.session_state.authenticated:
-    st.title("🔒 Доступ ограничен")
-    check_password()
-    st.stop()  # Обливает выполнением остальной код до ввода пароля
+            
+    st.stop()  # Блокирует загрузку приложения без пароля
 
 # --- ТУТ НАЧИНАЕТСЯ ТВОЙ ОСНОВНОЙ КОД ПРИЛОЖЕНИЯ ---
 
-# 4. БОКОВАЯ ПАНЕЛЬ ДЛЯ СМЕНЫ ПАРОЛЯ (ТОЛЬКО ДЛЯ АДМИНА)
+# 2. СМЕНА ПАРОЛЯ В SIDEBAR (МЕНЯЕТ НАВСЕГДА)
 with st.sidebar:
     st.write("---")
-    with st.expander("⚙️ Настройки доступа"):
-        admin_key = st.text_input("Мастер-пароль админа:", type="password")
-        new_pass = st.text_input("Новый код доступа для пользователей:", type="password")
+    with st.expander("⚙️ Изменить код доступа"):
+        admin_key = st.text_input("Мастер-пароль админа:", type="password", key="adm_key")
+        new_pass = st.text_input("Новый код доступа:", type="password", key="new_pass_key")
         
         if st.button("Сохранить новый код"):
-            if admin_key == st.session_state.admin_password:
+            if admin_key == ADMIN_PASSWORD:
                 if new_pass.strip():
-                    st.session_state.app_password = new_pass.strip()
-                    st.success("Код доступа успешно изменен!")
+                    # Перезаписываем файл с новым паролем
+                    with open(PASSWORD_FILE, "w", encoding="utf-8") as f:
+                        f.write(new_pass.strip())
+                    st.success(f"Код успешно изменен! Теперь вход по: {new_pass.strip()}")
                 else:
-                    st.warning("Введите корректный новый код.")
+                    st.warning("Пароль не может быть пустым!")
             else:
-                st.error("Неверный мастер-пароль!")
+                st.error("Неверный мастер-пароль админа!")
 
 
 st.set_page_config(page_title="SPIN-Тренажер SELTFAR", page_icon="🩺", layout="wide")
