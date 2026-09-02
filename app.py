@@ -1,8 +1,6 @@
 import streamlit as st
 from groq import Groq
 import json
-import os
-
 import streamlit as st
 
 # 1. ИНИЦИАЛИЗАЦИЯ ПАРОЛЕЙ В SESSION STATE
